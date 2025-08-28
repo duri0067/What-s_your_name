@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>본격 어색함 방지 게임 : 너의 이름은 (60초·중복방지)</title>
+
+  <style>
+    /* ===== 로컬 픽셀 폰트 (같은 폴더에 PressStart2P.ttf 두세요) ===== */
+    @font-face{
+      font-family:"ArcadePixel";
+      src: url("PressStart2P.ttf") format("truetype");
+      font-display: swap;
+    }
+
+    /* ----- 8비트 팔레트 ----- */
+    :root{
+      --ink:#1a1a1a; --bg0:#101018; --bg1:#1b2230; --bg2:#252f45;
+      --accent:#00ffc3; --accent2:#ffd400; --accent3:#ff5b5b;
+      --blue:#47b0ff; --panel:#121a28; --panel-br:#0a101b;
+      --white:#f6f7ff; --pink:#ff9bd3;
+    }
+
+    *{ box-sizing:border-box; image-rendering: pixelated; }
+    html,body{ height:100% }
+    body{
+      margin:0; color:var(--white);
+      font-family:"ArcadePixel", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+      background: linear-gradient(180deg, var(--bg0), var(--bg1));
+      letter-spacing:.5px; text-align:center; overflow:hidden;
+    }
+    /* CRT 스캔라인 */
+    body::after{
+      content:""; position:fixed; inset:0; pointer-events:none;
+      background-image: linear-gradient(rgba(0,0,0,.18) 50%, rgba(0,0,0,0) 50%);
+      background-size:100% 4px; mix-blend-mode:overlay;
+    }
+
+    /* 타이틀 */
+    h1{
+      margin:22px 8px 10px; font-size:32px; line-height:1.4;
+      color:var(--accent2);
+      text-shadow: 0 3px 0 var(--ink), 0 0 16px rgba(255,212,0,.55);
+    }
+
+    /* HUD */
+    #hud{
+      display:flex; justify-content:center; gap:18px;
+      width:max-content; margin:12px auto 16px;
+      padding:14px 18px; background:var(--panel);
+      border:6px solid var(--panel-br);
+      box-shadow: 0 5px 0 #000, inset 0 -5px 0 rgba(0,0,0,.2);
+    }
+    .hud-item{
+      display:flex; align-items:center; gap:10px;
+      min-width:240px; padding:12px 14px; font-size:18px;
+      background:var(--bg2);
+      border:6px solid var(--ink);
+      box-shadow: 0 5px 0 #000; color:#b9c8ff;
+    }
+    .hud-item b{ color:var(--white); font-size:20px }
+    #score b{ color:var(--accent) } #timer b{ color:var(--accent2) } #combo b{ color:var(--pink) }
+    .icon{ width:28px; height:28px; flex:0 0 28px; image-rendering: pixelated; }
+
+    /* 게임 필드 (네온 프레임) */
+    #game{
+      position:relative; width:100%; height:560px; margin:12px auto 0;
+      background: repeating-linear-gradient(90deg, #182136 0 2px, #1e2a42 2px 6px);
+      border:8px solid var(--ink); outline:4px solid #0c1322;
+      box-shadow: inset 0 0 40px rgba(0,0,0,.65), 0 0 12px var(--accent), 0 0 30px rgba(0,255,195,.35);
+      overflow:hidden; animation: neonPulse 2400ms ease-in-out infinite;
+    }
+    @keyframes neonPulse{
+      0%,100%{ box-shadow: inset 0 0 40px rgba(0,0,0,.65), 0 0 10px var(--accent), 0 0 24px rgba(0,255,195,.3) }
+      50%{    box-shadow: inset 0 0 40px rgba(0,0,0,.65), 0 0 18px var(--accent), 0 0 40px rgba(0,255,195,.5) }
+    }
+
+    /* 떨어지는 단어 */
+    .word{
+      position:absolute; font-size:20px; line-height:1; color:#eafff9;
+      background:#0f2530; border:4px solid var(--ink); padding:8px 12px;
+      box-shadow: 0 4px 0 #000, 0 0 10px rgba(0,255,195,.25);
+      user-select:none; pointer-events:none;
+    }
+
+    /* 입력 & 버튼 */
+    #controls{ margin:14px 0 20px }
+    #input{
+      width:480px; max-width:92%; padding:16px 18px; font-size:18px;
+      color:#09221c; background:var(--accent); border:6px solid var(--ink);
+      box-shadow: 0 6px 0 #004437, inset 0 -6px 0 rgba(0,0,0,.15); outline:none;
+    }
+    #input:disabled{ filter:grayscale(.6) brightness(.85) }
+    .btn{
+      display:inline-flex; align-items:center; gap:10px; margin-left:12px; padding:16px 20px; font-size:18px;
+      color:#09221c; background:var(--accent); border:6px solid var(--ink); cursor:pointer;
+      box-shadow: 0 6px 0 #004437, 0 0 16px rgba(0,255,195,.25); transition: transform .05s;
+    }
+    .btn:hover{ filter:brightness(.95) }
+    .btn:active{ transform: translateY(2px); box-shadow: 0 3px 0 #004437 }
+    #restartBtn{ display:none }
+
+    /* 오버레이 */
+    #overlay, #missFlash, #insertCoin{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; z-index:6; }
+    #countdown{
+      font-size:56px; color:#fff; text-shadow: 0 3px 0 var(--ink), 0 0 18px rgba(255,212,0,.6);
+      animation: pop .4s ease-out;
+    }
+    @keyframes pop{ from{ transform:scale(.6); opacity:.2 } to{ transform:scale(1); opacity:1 } }
+
+    #missFlash{ background: rgba(255,0,0,.22); pointer-events:none; }
+    @keyframes missBlink{ 0%{opacity:0} 20%{opacity:1} 100%{opacity:0} }
+
+    #insertCoin{
+      flex-direction:column; gap:12px; color:#ffeaa7;
+      text-shadow: 0 2px 0 var(--ink), 0 0 10px rgba(255,234,167,.6);
+      animation: coinBlink 1s steps(2,end) infinite;
+    }
+    #insertCoin .small{ font-size:14px; color:#b9c8ff; text-shadow:none }
+    @keyframes coinBlink{ 0%{opacity:1} 50%{opacity:.15} 100%{opacity:1} }
+
+    .float-score{
+      position:absolute; transform:translate(-50%, -50%); pointer-events:none; font-size:18px; color:#fff;
+      text-shadow:0 2px 0 var(--ink), 0 0 10px rgba(255,212,0,.7); animation: rise 700ms ease-out forwards; z-index:7;
+    }
+    @keyframes rise{ from{ opacity:0; transform:translate(-50%,-10%) } 20%{ opacity:1 } to{ opacity:0; transform:translate(-50%,-80%) } }
+  </style>
+</head>
+<body>
+  <h1>본격 어색함 방지 게임 : 너의 이름은</h1>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-item" id="timer">
+      <svg class="icon" viewBox="0 0 16 16" shape-rendering="crispEdges">
+        <rect width="16" height="16" fill="none"/>
+        <rect x="6" y="0" width="4" height="2" fill="#000"/>
+        <rect x="5" y="2" width="6" height="2" fill="#000"/>
+        <rect x="3" y="4" width="10" height="10" fill="#ffd400" stroke="#000" stroke-width="2"/>
+        <rect x="7" y="6" width="2" height="4" fill="#000"/>
+      </svg>
+      <div>TIME<br>남은 시간: <b>60</b>s</div>
+    </div>
+
+    <div class="hud-item" id="score">
+      <svg class="icon" viewBox="0 0 16 16" shape-rendering="crispEdges">
+        <rect width="16" height="16" fill="none"/>
+        <rect x="3" y="1" width="10" height="4" fill="#ffd400" stroke="#000" stroke-width="2"/>
+        <rect x="2" y="3" width="3" height="4" fill="#ffd400" stroke="#000" stroke-width="2"/>
+        <rect x="11" y="3" width="3" height="4" fill="#ffd400" stroke="#000" stroke-width="2"/>
+        <rect x="6" y="5" width="4" height="5" fill="#ffd400" stroke="#000" stroke-width="2"/>
+        <rect x="5" y="10" width="6" height="2" fill="#ffd400" stroke="#000" stroke-width="2"/>
+        <rect x="4" y="12" width="8" height="2" fill="#ffd400" stroke="#000" stroke-width="2"/>
+      </svg>
+      <div>SCORE<br>점수: <b>0</b></div>
+    </div>
+
+    <div class="hud-item" id="combo">
+      <svg class="icon" viewBox="0 0 16 16" shape-rendering="crispEdges">
+        <rect width="16" height="16" fill="none"/>
+        <polygon points="7,0 2,9 6,9 3,16 13,6 9,6 12,0" fill="#ff9bd3" stroke="#000" stroke-width="2"/>
+      </svg>
+      <div>COMBO<br>연속: <b id="comboCount">0</b> ×<b id="mult">1</b></div>
+    </div>
+  </div>
+
+  <!-- 게임 필드 -->
+  <div id="game">
+    <div id="overlay"><div id="countdown">READY</div></div>
+    <div id="missFlash"></div>
+    <div id="insertCoin">
+      <div>INSERT COIN</div>
+      <div class="small">[게임 시작] 버튼을 눌러 주세요</div>
+    </div>
+  </div>
+
+  <!-- 컨트롤 -->
+  <div id="controls">
+    <input type="text" id="input" placeholder="이름을 입력하고 Enter" autocomplete="off" disabled />
+    <button id="startBtn" class="btn">
+      <svg class="icon" viewBox="0 0 16 16" shape-rendering="crispEdges">
+        <polygon points="3,2 13,8 3,14" fill="#003a31" stroke="#001b16" stroke-width="2"/>
+      </svg>
+      게임 시작
+    </button>
+    <button id="restartBtn" class="btn">
+      <svg class="icon" viewBox="0 0 16 16" shape-rendering="crispEdges">
+        <polyline points="2,6 2,2 6,2" fill="none" stroke="#001b16" stroke-width="3"/>
+        <polyline points="14,10 14,14 10,14" fill="none" stroke="#001b16" stroke-width="3"/>
+        <polyline points="6,2 14,10" fill="none" stroke="#001b16" stroke-width="3"/>
+        <polyline points="10,14 2,6" fill="none" stroke="#001b16" stroke-width="3"/>
+      </svg>
+      재시작
+    </button>
+  </div>
+
+  <script>
+    // === 이름 83개 ===
+    const words = [
+      "남궁명","이윤서","권영지","기잎새","채유라","김병규","박성진","이상훈","권정연",
+      "장서윤","조민하","이건일","조영진","이하지","이민지","안수현","김성훈","이지은",
+      "류한나","방웅빈","김혜미","허기무","추현일","한지호","김가람","정민준","한윤서",
+      "김소영","임동현","김현주","이은경","임동선","금상훈","정다미","김민주","이현영",
+      "박서준","조경민","문상하","배준호","김수현","김태리","유원녕","박영현","전현태",
+      "백진현","홍석란","김소현","장병국","신승훈","김지수","장혁민","곽영재","김형준",
+      "최고은","윤성은","최서영","문수영","김수현","이선우","장해원","임용재","최지수",
+      "임정은","박진수","문진영","이혜미","고광남","정우진","정대훈","곽규환","이예은",
+      "백은정","이정하","현채빈","김서연","이중엽","윤상빈","이지영","김선진","현동윤",
+      "김다혜","최민아"
+    ];
+
+    /* ====== 중복 방지: 셔플 풀에서 하나씩 꺼내기 ====== */
+    let wordPool = shuffle([...words]);
+    function shuffle(arr){
+      for(let i=arr.length-1; i>0; i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+    function getNextWord(){
+      if(wordPool.length===0) wordPool = shuffle([...words]);
+      return wordPool.pop(); // 한 번 나온 건 풀에서 제거 → 한 바퀴 돌기 전 재등장 X
+    }
+
+    // Elements
+    const gameArea = document.getElementById("game");
+    const input = document.getElementById("input");
+    const scoreB = document.querySelector("#score b");
+    const timerB = document.querySelector("#timer b");
+    const comboCountB = document.getElementById("comboCount");
+    const multB = document.getElementById("mult");
+    const startBtn = document.getElementById("startBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const overlay = document.getElementById("overlay");
+    const countdownEl = document.getElementById("countdown");
+    const missFlash = document.getElementById("missFlash");
+    const insertCoin = document.getElementById("insertCoin");
+
+    // State (60초)
+    let score = 0;
+    let fallSpeed = 2.2;   // 시작 속도
+    let spawnMs = 900;     // 스폰 주기
+    let timeLeft = 60;     // 제한 시간
+    let combo = 0;
+    let multiplier = 1;    // 5콤보마다 +1, 최대 5
+    let gameInterval=null, wordInterval=null, timerInterval=null, speedInterval=null, countdownTimer=null;
+    let isRunning = false;
+    let lastMissTime = 0;
+
+    function clearAllIntervals(){
+      if (gameInterval) clearInterval(gameInterval);
+      if (wordInterval) clearInterval(wordInterval);
+      if (timerInterval) clearInterval(timerInterval);
+      if (speedInterval) clearInterval(speedInterval);
+      if (countdownTimer) clearInterval(countdownTimer);
+      gameInterval=wordInterval=timerInterval=speedInterval=countdownTimer=null;
+    }
+
+    function resetState(){
+      score=0; fallSpeed=2.2; spawnMs=900; timeLeft=60;
+      combo=0; multiplier=1; isRunning=false;
+      scoreB.textContent=score; timerB.textContent=timeLeft;
+      comboCountB.textContent=combo; multB.textContent=multiplier;
+      restartBtn.style.display="none"; startBtn.style.display="inline-flex";
+      input.value=""; input.disabled=true;
+      document.querySelectorAll(".word").forEach(el=>el.remove());
+      overlay.style.display="none";
+      missFlash.style.display="none"; missFlash.style.animation="none";
+      insertCoin.style.display="flex";
+      // 셔플 풀도 리셋
+      wordPool = shuffle([...words]);
+    }
+
+    function createWord(){
+      const wordEl=document.createElement("div");
+      wordEl.className="word";
+      wordEl.textContent=getNextWord(); // ✅ 셔플 풀에서 꺼내기 (중복 방지)
+      const maxLeft=Math.max(0, gameArea.clientWidth - 200);
+      wordEl.style.left=Math.max(0, Math.random()*maxLeft) + "px";
+      wordEl.style.top="0px";
+      gameArea.appendChild(wordEl);
+    }
+
+    function moveWords(){
+      const wordEls=document.querySelectorAll(".word");
+      wordEls.forEach(word=>{
+        let top=parseFloat(word.style.top);
+        top += fallSpeed;
+        word.style.top=top+"px";
+        if(top>gameArea.clientHeight){
+          word.remove();
+          registerMiss();
+        }
+      });
+    }
+
+    function updateCombo(hit){
+      if(hit){ combo++; multiplier = Math.min(1 + Math.floor(combo/5), 5); }
+      else { combo = 0; multiplier = 1; }
+      comboCountB.textContent = combo; multB.textContent = multiplier;
+    }
+
+    function floatScore(x,y,amount){
+      const el=document.createElement("div");
+      el.className="float-score";
+      el.style.left = x+"px"; el.style.top = y+"px";
+      el.textContent = `+${amount}`;
+      gameArea.appendChild(el);
+      setTimeout(()=>el.remove(),700);
+    }
+
+    function actuallyStartGame(){
+      isRunning=true; input.disabled=false; input.focus();
+      wordInterval = setInterval(createWord, spawnMs);
+      gameInterval = setInterval(moveWords, 30);
+      speedInterval = setInterval(()=>{ fallSpeed += 0.35; }, 4000);
+      timerInterval = setInterval(()=>{
+        timeLeft--; timerB.textContent=timeLeft;
+        if(timeLeft<=0) endGame();
+      },1000);
+    }
+
+    function startWithCountdown(){
+      clearAllIntervals(); resetState();
+      startBtn.style.display="none";
+      insertCoin.style.display="none";      // 카운트다운 동안 숨김
+      overlay.style.display="flex";
+      input.disabled=true;
+
+      const steps=["READY","3","2","1","GO!"]; let idx=0;
+      countdownEl.textContent=steps[idx];
+      countdownEl.style.animation="pop .4s ease-out";
+      countdownTimer=setInterval(()=>{
+        idx++;
+        if(idx<steps.length){
+          countdownEl.textContent=steps[idx];
+          countdownEl.style.animation="none"; void countdownEl.offsetWidth; countdownEl.style.animation="pop .4s ease-out";
+        }else{
+          clearInterval(countdownTimer);
+          overlay.style.display="none";
+          actuallyStartGame();
+        }
+      },800);
+    }
+
+    function endGame(){
+      isRunning=false; clearAllIntervals(); input.disabled=true;
+      restartBtn.style.display="inline-flex";
+      alert(`게임 종료! 점수: ${score}`);
+    }
+
+    function triggerMissFlash(){
+      const now=Date.now(); if(now - lastMissTime < 150) return;
+      lastMissTime = now;
+      missFlash.style.display="block";
+      missFlash.style.animation="none"; void missFlash.offsetWidth;
+      missFlash.style.animation="missBlink 280ms ease-out";
+      setTimeout(()=>{ missFlash.style.display="none"; },280);
+    }
+
+    function registerMiss(){ updateCombo(false); triggerMissFlash(); }
+
+    // 입력
+    input.addEventListener("keydown",(e)=>{
+      if(e.key==="Enter" && isRunning){
+        const value=input.value.trim();
+        if(!value) return;
+
+        const wordEls = Array.from(document.querySelectorAll(".word"))
+          .filter(w=>w.textContent===value)
+          .sort((a,b)=>parseFloat(a.style.top)-parseFloat(b.style.top));
+
+        if(wordEls.length>0){
+          const target=wordEls[0];
+          const rect=target.getBoundingClientRect();
+          const parentRect=gameArea.getBoundingClientRect();
+          const cx=rect.left - parentRect.left + rect.width/2;
+          const cy=rect.top - parentRect.top;
+
+          target.remove();
+          updateCombo(true);
+          const gain = 1 * multiplier;  // 기본 1점 × 배수
+          score += gain; scoreB.textContent = score;
+          floatScore(cx, cy, gain);
+        }else{
+          registerMiss(); // 오타도 미스
+        }
+        input.value="";
+      }
+    });
+
+    // 버튼
+    startBtn.addEventListener("click", startWithCountdown);
+    restartBtn.addEventListener("click", startWithCountdown);
+
+    // 포커스 유지
+    window.addEventListener("resize", ()=>{ if(isRunning) input.focus(); });
+
+    // 초기 상태
+    resetState();
+  </script>
+</body>
+</html>
