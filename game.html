@@ -2,22 +2,20 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>본격 어색함 방지 게임 : 너의 이름은 (60초·중복방지)</title>
+  <title>본격 어색함 방지 게임 : 너의 이름은 </title>
 
   <style>
-    /* ===== 로컬 픽셀 폰트 (같은 폴더에 PressStart2P.ttf 두세요) ===== */
+    /* ===== 로컬 픽셀 폰트 (동일 폴더에 PressStart2P.ttf 두면 적용됨) ===== */
     @font-face{
       font-family:"ArcadePixel";
       src: url("PressStart2P.ttf") format("truetype");
       font-display: swap;
     }
 
-    /* ----- 8비트 팔레트 ----- */
     :root{
       --ink:#1a1a1a; --bg0:#101018; --bg1:#1b2230; --bg2:#252f45;
       --accent:#00ffc3; --accent2:#ffd400; --accent3:#ff5b5b;
-      --blue:#47b0ff; --panel:#121a28; --panel-br:#0a101b;
-      --white:#f6f7ff; --pink:#ff9bd3;
+      --panel:#121a28; --panel-br:#0a101b; --white:#f6f7ff; --pink:#ff9bd3;
     }
 
     *{ box-sizing:border-box; image-rendering: pixelated; }
@@ -35,7 +33,6 @@
       background-size:100% 4px; mix-blend-mode:overlay;
     }
 
-    /* 타이틀 */
     h1{
       margin:22px 8px 10px; font-size:32px; line-height:1.4;
       color:var(--accent2);
@@ -61,7 +58,33 @@
     #score b{ color:var(--accent) } #timer b{ color:var(--accent2) } #combo b{ color:var(--pink) }
     .icon{ width:28px; height:28px; flex:0 0 28px; image-rendering: pixelated; }
 
-    /* 게임 필드 (네온 프레임) */
+    /* LIFE HUD (픽셀 라이프 바) */
+    #lifeBox{ display:flex; flex-direction:column; gap:6px; }
+    #lifeText{ font-size:16px; color:#ffc6c6 }
+    .lifeBar{
+      position:relative; width:260px; height:22px;
+      background:#2b1a1a; border:6px solid var(--ink);
+      box-shadow: 0 5px 0 #000, inset 0 0 10px rgba(0,0,0,.4);
+      overflow:hidden;
+    }
+    .lifeFill{
+      position:absolute; left:0; top:0; bottom:0; width:100%;
+      background: linear-gradient(90deg, #ff6b6b, #ff3b3b);
+      box-shadow: inset 0 -4px 0 rgba(0,0,0,.25), 0 0 12px rgba(255,59,59,.35);
+      transition: width .12s steps(4, end);
+    }
+    .lifeSeg{
+      position:absolute; top:0; bottom:0; width:10%; border-right:2px solid rgba(0,0,0,.35);
+      pointer-events:none;
+    }
+    /* 10분할 가이드 라인 */
+    .lifeBar .lifeSeg:nth-child(1){ left:10% } .lifeBar .lifeSeg:nth-child(2){ left:20% }
+    .lifeBar .lifeSeg:nth-child(3){ left:30% } .lifeBar .lifeSeg:nth-child(4){ left:40% }
+    .lifeBar .lifeSeg:nth-child(5){ left:50% } .lifeBar .lifeSeg:nth-child(6){ left:60% }
+    .lifeBar .lifeSeg:nth-child(7){ left:70% } .lifeBar .lifeSeg:nth-child(8){ left:80% }
+    .lifeBar .lifeSeg:nth-child(9){ left:90% }
+
+    /* 게임 필드 */
     #game{
       position:relative; width:100%; height:560px; margin:12px auto 0;
       background: repeating-linear-gradient(90deg, #182136 0 2px, #1e2a42 2px 6px);
@@ -74,7 +97,6 @@
       50%{    box-shadow: inset 0 0 40px rgba(0,0,0,.65), 0 0 18px var(--accent), 0 0 40px rgba(0,255,195,.5) }
     }
 
-    /* 떨어지는 단어 */
     .word{
       position:absolute; font-size:20px; line-height:1; color:#eafff9;
       background:#0f2530; border:4px solid var(--ink); padding:8px 12px;
@@ -82,7 +104,6 @@
       user-select:none; pointer-events:none;
     }
 
-    /* 입력 & 버튼 */
     #controls{ margin:14px 0 20px }
     #input{
       width:480px; max-width:92%; padding:16px 18px; font-size:18px;
@@ -161,6 +182,23 @@
       </svg>
       <div>COMBO<br>연속: <b id="comboCount">0</b> ×<b id="mult">1</b></div>
     </div>
+
+    <div class="hud-item" id="life">
+      <svg class="icon" viewBox="0 0 16 16" shape-rendering="crispEdges">
+        <rect width="16" height="16" fill="none"/>
+        <path d="M8 14 L2 8 C-1 5 2 1 5 3 C6 4 7 5 8 6 C9 5 10 4 11 3 C14 1 17 5 14 8 Z"
+              fill="#ff5b7f" stroke="#000" stroke-width="2"/>
+      </svg>
+      <div id="lifeBox">
+        <div id="lifeText">LIFE: <b>10</b>/10</div>
+        <div class="lifeBar">
+          <div class="lifeFill" id="lifeFill" style="width:100%"></div>
+          <div class="lifeSeg"></div><div class="lifeSeg"></div><div class="lifeSeg"></div>
+          <div class="lifeSeg"></div><div class="lifeSeg"></div><div class="lifeSeg"></div>
+          <div class="lifeSeg"></div><div class="lifeSeg"></div><div class="lifeSeg"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 게임 필드 -->
@@ -208,7 +246,7 @@
       "김다혜","최민아"
     ];
 
-    /* ====== 중복 방지: 셔플 풀에서 하나씩 꺼내기 ====== */
+    /* ====== 중복 방지: 셔플 풀 ====== */
     let wordPool = shuffle([...words]);
     function shuffle(arr){
       for(let i=arr.length-1; i>0; i--){
@@ -219,7 +257,38 @@
     }
     function getNextWord(){
       if(wordPool.length===0) wordPool = shuffle([...words]);
-      return wordPool.pop(); // 한 번 나온 건 풀에서 제거 → 한 바퀴 돌기 전 재등장 X
+      return wordPool.pop();
+    }
+
+    // ====== 효과음 (WebAudio: 추가 파일 불필요) ======
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let actx = null;
+    function ensureAudio(){
+      if(!actx) actx = new AudioCtx();
+    }
+    function beep({freq=880, type='square', duration=0.08, gain=0.05}={}){
+      ensureAudio();
+      const osc = actx.createOscillator();
+      const g = actx.createGain();
+      osc.type = type; osc.frequency.value = freq;
+      g.gain.value = gain;
+      osc.connect(g).connect(actx.destination);
+      osc.start();
+      setTimeout(()=>{ osc.stop(); osc.disconnect(); g.disconnect(); }, duration*1000);
+    }
+    function hitSound(){               // 맞췄을 때: 짧고 밝게
+      beep({freq: 880, type:'square', duration:0.07, gain:0.06});
+      setTimeout(()=>beep({freq: 1320, type:'square', duration:0.05, gain:0.05}), 60);
+    }
+    function missSound(){              // 놓쳤을 때: 낮고 거칠게
+      ensureAudio();
+      const o1 = actx.createOscillator(), n = actx.createOscillator(), g = actx.createGain();
+      o1.type='square'; o1.frequency.value=110;
+      n.type='triangle'; n.frequency.value=55;
+      g.gain.value=0.07;
+      o1.connect(g); n.connect(g); g.connect(actx.destination);
+      o1.start(); n.start();
+      setTimeout(()=>{ o1.stop(); n.stop(); o1.disconnect(); n.disconnect(); g.disconnect(); }, 110);
     }
 
     // Elements
@@ -235,30 +304,45 @@
     const countdownEl = document.getElementById("countdown");
     const missFlash = document.getElementById("missFlash");
     const insertCoin = document.getElementById("insertCoin");
+    const lifeFill = document.getElementById("lifeFill");
+    const lifeText = document.getElementById("lifeText");
 
-    // State (60초)
+    // State
     let score = 0;
-    let fallSpeed = 2.2;   // 시작 속도
-    let spawnMs = 900;     // 스폰 주기
-    let timeLeft = 60;     // 제한 시간
+    let fallSpeed = 2.2;
+    let spawnMs = 900;
+    let timeLeft = 60;
     let combo = 0;
-    let multiplier = 1;    // 5콤보마다 +1, 최대 5
-    let gameInterval=null, wordInterval=null, timerInterval=null, speedInterval=null, countdownTimer=null;
+    let multiplier = 1;
     let isRunning = false;
     let lastMissTime = 0;
 
+    // LIFE
+    const MAX_LIFE = 10;
+    let life = MAX_LIFE;
+
+    // timers
+    let gameInterval=null, wordInterval=null, timerInterval=null, speedInterval=null, countdownTimer=null;
+
     function clearAllIntervals(){
-      if (gameInterval) clearInterval(gameInterval);
-      if (wordInterval) clearInterval(wordInterval);
-      if (timerInterval) clearInterval(timerInterval);
-      if (speedInterval) clearInterval(speedInterval);
-      if (countdownTimer) clearInterval(countdownTimer);
+      [gameInterval,wordInterval,timerInterval,speedInterval,countdownTimer].forEach(t=>t && clearInterval(t));
       gameInterval=wordInterval=timerInterval=speedInterval=countdownTimer=null;
     }
 
+    function updateLifeBar(){
+      const pct = Math.max(0, Math.min(1, life / MAX_LIFE));
+      lifeFill.style.width = (pct*100) + "%";
+      lifeText.innerHTML = `LIFE: <b>${life}</b>/${MAX_LIFE}`;
+      // 위험 색감 살짝 강조
+      if(pct <= 0.3){ lifeFill.style.filter = "saturate(1.4) brightness(1)"; }
+      else if(pct <= 0.6){ lifeFill.style.filter = "saturate(1.2)"; }
+      else { lifeFill.style.filter = "none"; }
+    }
+
     function resetState(){
-      score=0; fallSpeed=2.2; spawnMs=900; timeLeft=60;
-      combo=0; multiplier=1; isRunning=false;
+      score=0; fallSpeed=2.2; spawnMs=900; timeLeft=60; combo=0; multiplier=1; isRunning=false;
+      life = MAX_LIFE; updateLifeBar();
+
       scoreB.textContent=score; timerB.textContent=timeLeft;
       comboCountB.textContent=combo; multB.textContent=multiplier;
       restartBtn.style.display="none"; startBtn.style.display="inline-flex";
@@ -267,14 +351,13 @@
       overlay.style.display="none";
       missFlash.style.display="none"; missFlash.style.animation="none";
       insertCoin.style.display="flex";
-      // 셔플 풀도 리셋
-      wordPool = shuffle([...words]);
+      wordPool = shuffle([...words]); // 셔플 리셋
     }
 
     function createWord(){
       const wordEl=document.createElement("div");
       wordEl.className="word";
-      wordEl.textContent=getNextWord(); // ✅ 셔플 풀에서 꺼내기 (중복 방지)
+      wordEl.textContent=getNextWord();
       const maxLeft=Math.max(0, gameArea.clientWidth - 200);
       wordEl.style.left=Math.max(0, Math.random()*maxLeft) + "px";
       wordEl.style.top="0px";
@@ -289,7 +372,7 @@
         word.style.top=top+"px";
         if(top>gameArea.clientHeight){
           word.remove();
-          registerMiss();
+          registerMiss(); // 떨어뜨리면 라이프-1
         }
       });
     }
@@ -302,8 +385,7 @@
 
     function floatScore(x,y,amount){
       const el=document.createElement("div");
-      el.className="float-score";
-      el.style.left = x+"px"; el.style.top = y+"px";
+      el.className="float-score"; el.style.left = x+"px"; el.style.top = y+"px";
       el.textContent = `+${amount}`;
       gameArea.appendChild(el);
       setTimeout(()=>el.remove(),700);
@@ -316,7 +398,7 @@
       speedInterval = setInterval(()=>{ fallSpeed += 0.35; }, 4000);
       timerInterval = setInterval(()=>{
         timeLeft--; timerB.textContent=timeLeft;
-        if(timeLeft<=0) endGame();
+        if(timeLeft<=0) endGame("time");
       },1000);
     }
 
@@ -324,12 +406,10 @@
       clearAllIntervals(); resetState();
       startBtn.style.display="none";
       insertCoin.style.display="none";      // 카운트다운 동안 숨김
-      overlay.style.display="flex";
-      input.disabled=true;
+      overlay.style.display="flex"; input.disabled=true;
 
       const steps=["READY","3","2","1","GO!"]; let idx=0;
-      countdownEl.textContent=steps[idx];
-      countdownEl.style.animation="pop .4s ease-out";
+      countdownEl.textContent=steps[idx]; countdownEl.style.animation="pop .4s ease-out";
       countdownTimer=setInterval(()=>{
         idx++;
         if(idx<steps.length){
@@ -343,22 +423,29 @@
       },800);
     }
 
-    function endGame(){
+    function endGame(reason="time"){
       isRunning=false; clearAllIntervals(); input.disabled=true;
       restartBtn.style.display="inline-flex";
-      alert(`게임 종료! 점수: ${score}`);
+      const msg = reason==="life" ? "라이프가 0이 되어 게임 종료!" : "시간 종료!";
+      alert(`${msg}\n최종 점수: ${score}`);
     }
 
     function triggerMissFlash(){
-      const now=Date.now(); if(now - lastMissTime < 150) return;
-      lastMissTime = now;
+      const now=Date.now(); if(now - lastMissTime < 150) return; lastMissTime = now;
       missFlash.style.display="block";
       missFlash.style.animation="none"; void missFlash.offsetWidth;
       missFlash.style.animation="missBlink 280ms ease-out";
       setTimeout(()=>{ missFlash.style.display="none"; },280);
     }
 
-    function registerMiss(){ updateCombo(false); triggerMissFlash(); }
+    function registerMiss(){
+      updateCombo(false);
+      life = Math.max(0, life-1);
+      updateLifeBar();
+      triggerMissFlash();
+      missSound();
+      if(life<=0){ endGame("life"); }
+    }
 
     // 입력
     input.addEventListener("keydown",(e)=>{
@@ -382,16 +469,25 @@
           const gain = 1 * multiplier;  // 기본 1점 × 배수
           score += gain; scoreB.textContent = score;
           floatScore(cx, cy, gain);
+          hitSound();
         }else{
-          registerMiss(); // 오타도 미스
+          // 오타로 일치 단어가 없으면 "한 번의 기회 낭비"로 처리
+          registerMiss();
         }
         input.value="";
       }
     });
 
     // 버튼
-    startBtn.addEventListener("click", startWithCountdown);
-    restartBtn.addEventListener("click", startWithCountdown);
+    startBtn.addEventListener("click", ()=>{
+      // iOS 사파리 등 사용자 제스처 이후에만 오디오 컨텍스트 허용 → 버튼 클릭 시 초기화
+      ensureAudio();
+      startWithCountdown();
+    });
+    restartBtn.addEventListener("click", ()=>{
+      ensureAudio();
+      startWithCountdown();
+    });
 
     // 포커스 유지
     window.addEventListener("resize", ()=>{ if(isRunning) input.focus(); });
