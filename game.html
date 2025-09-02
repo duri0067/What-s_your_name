@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>본격 어색함 방지 게임 : 너의 이름은 </title>
+  <title>본격 어색함 방지 게임 : 너의 이름은 (최적화 버전)</title>
 
   <style>
-    /* ===== 로컬 픽셀 폰트 (동일 폴더에 PressStart2P.ttf 두면 적용됨) ===== */
+    /* 로컬 픽셀 폰트 */
     @font-face{
       font-family:"ArcadePixel";
       src: url("PressStart2P.ttf") format("truetype");
@@ -16,6 +16,7 @@
       --ink:#1a1a1a; --bg0:#101018; --bg1:#1b2230; --bg2:#252f45;
       --accent:#00ffc3; --accent2:#ffd400; --accent3:#ff5b5b;
       --panel:#121a28; --panel-br:#0a101b; --white:#f6f7ff; --pink:#ff9bd3;
+      --gold:#ffd400; --blue:#47b0ff; --green:#00ffc3; --silver:#cfd6e1; --gray:#7f8da3;
     }
 
     *{ box-sizing:border-box; image-rendering: pixelated; }
@@ -58,7 +59,7 @@
     #score b{ color:var(--accent) } #timer b{ color:var(--accent2) } #combo b{ color:var(--pink) }
     .icon{ width:28px; height:28px; flex:0 0 28px; image-rendering: pixelated; }
 
-    /* LIFE HUD (픽셀 라이프 바) */
+    /* LIFE HUD */
     #lifeBox{ display:flex; flex-direction:column; gap:6px; }
     #lifeText{ font-size:16px; color:#ffc6c6 }
     .lifeBar{
@@ -73,11 +74,7 @@
       box-shadow: inset 0 -4px 0 rgba(0,0,0,.25), 0 0 12px rgba(255,59,59,.35);
       transition: width .12s steps(4, end);
     }
-    .lifeSeg{
-      position:absolute; top:0; bottom:0; width:10%; border-right:2px solid rgba(0,0,0,.35);
-      pointer-events:none;
-    }
-    /* 10분할 가이드 라인 */
+    .lifeSeg{ position:absolute; top:0; bottom:0; width:10%; border-right:2px solid rgba(0,0,0,.35); pointer-events:none; }
     .lifeBar .lifeSeg:nth-child(1){ left:10% } .lifeBar .lifeSeg:nth-child(2){ left:20% }
     .lifeBar .lifeSeg:nth-child(3){ left:30% } .lifeBar .lifeSeg:nth-child(4){ left:40% }
     .lifeBar .lifeSeg:nth-child(5){ left:50% } .lifeBar .lifeSeg:nth-child(6){ left:60% }
@@ -120,7 +117,23 @@
     .btn:active{ transform: translateY(2px); box-shadow: 0 3px 0 #004437 }
     #restartBtn{ display:none }
 
-    /* 오버레이 */
+    /* 인게임 응원 코멘트 (UI/그래픽 동일, display 토글 → opacity 토글) */
+    #announcer{
+      position:absolute; left:50%; transform:translateX(-50%) translateZ(0);
+      top:14px; z-index:8; pointer-events:none;
+      max-width:92%; padding:8px 12px; font-size:16px;
+      color:#aefbe7; text-shadow:0 2px 0 #001b16;
+      background: rgba(15,37,48, .65);
+      border:4px solid var(--ink);
+      box-shadow:0 4px 0 #000, 0 0 12px rgba(0,255,195,.25);
+
+      opacity:0;                 /* ← 기본은 보이지 않음 */
+      transition: opacity .18s ease-out;
+      will-change: opacity, transform;
+      backface-visibility: hidden;
+    }
+
+    /* 오버레이/미스/인서트코인 */
     #overlay, #missFlash, #insertCoin{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; z-index:6; }
     #countdown{
       font-size:56px; color:#fff; text-shadow: 0 3px 0 var(--ink), 0 0 18px rgba(255,212,0,.6);
@@ -144,6 +157,41 @@
       text-shadow:0 2px 0 var(--ink), 0 0 10px rgba(255,212,0,.7); animation: rise 700ms ease-out forwards; z-index:7;
     }
     @keyframes rise{ from{ opacity:0; transform:translate(-50%,-10%) } 20%{ opacity:1 } to{ opacity:0; transform:translate(-50%,-80%) } }
+
+    /* 결과(등급/축하) 오버레이 */
+    #resultOverlay{
+      position:fixed; inset:0; background: rgba(0,0,0,.65);
+      display:none; align-items:center; justify-content:center; z-index:20;
+    }
+    .resultCard{
+      background:#0d1b2a; border:6px solid var(--accent); padding:24px 28px;
+      box-shadow: 0 10px 0 #000, 0 0 24px rgba(0,255,195,.35);
+      width:min(620px, 92%); text-align:center;
+      animation: pop .3s ease-out;
+    }
+    .gradeBadge{
+      margin:0 auto 10px; width:92px; height:92px; border:6px solid #000; border-radius:14px;
+      display:flex; align-items:center; justify-content:center; font-size:46px; color:#101018;
+      box-shadow: 0 6px 0 #000, 0 0 18px rgba(255,255,255,.25);
+      text-shadow: 0 3px 0 rgba(0,0,0,.3);
+    }
+    .gradeS{ background: var(--gold); }
+    .gradeA{ background: var(--green); }
+    .gradeB{ background: var(--silver); }
+    .gradeC{ background: var(--gray); color:#0a0f18; }
+    .resultTitle{ font-size:26px; color:#ffd400; text-shadow:0 3px 0 #000, 0 0 18px rgba(255,212,0,.5); margin-bottom:6px; }
+    .resultScore{ font-size:22px; margin:6px 0 2px; color:#aefbe7 }
+    .resultSub{ font-size:16px; color:#cfe4ff; margin-bottom:10px }
+    .resultTitle2{ font-size:18px; margin:8px 0 12px; color:#ffeaa7 }
+    .resultBtns{ margin-top:12px }
+    .resultBtns .btn{ margin:8px }
+
+    .confetti{
+      position:fixed; top:-10px; width:8px; height:8px; background:#ffd400;
+      animation: fall 1600ms linear forwards; z-index:21;
+      box-shadow: 0 0 10px rgba(255,255,255,.4);
+    }
+    @keyframes fall{ to{ transform:translateY(110vh) rotate(540deg); } }
   </style>
 </head>
 <body>
@@ -203,6 +251,9 @@
 
   <!-- 게임 필드 -->
   <div id="game">
+    <!-- 인게임 응원 코멘트 (opacity로만 토글) -->
+    <div id="announcer">👏 멘트</div>
+
     <div id="overlay"><div id="countdown">READY</div></div>
     <div id="missFlash"></div>
     <div id="insertCoin">
@@ -231,7 +282,34 @@
     </button>
   </div>
 
+  <!-- 결과(등급/축하) 오버레이 -->
+  <div id="resultOverlay">
+    <div class="resultCard">
+      <div id="gradeBadge" class="gradeBadge gradeC">C</div>
+      <div class="resultTitle" id="resultTitle">🎉 GREAT JOB! 🎉</div>
+      <div class="resultTitle2" id="gradeTitle">조원들 이름은... 아시죠? 😅</div>
+      <div class="resultScore">최종 점수: <b id="finalScore">0</b></div>
+      <div class="resultSub">
+        <span id="finalComment">이 정도면 이름 거의 외울 듯? 대단해요!</span>
+        <br>
+        Max Combo: <b id="finalCombo">0</b>
+      </div>
+      <div class="resultBtns">
+        <button id="playAgain" class="btn">다시 하기</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    /* ===== 등급/칭호 기준 ===== */
+    const GRADE_THRESHOLDS = { S:150, A:100, B:60 };
+    const GRADE_TITLES = {
+      S: "HR Day의 정.복.자🥰",
+      A: "HR Day 참석 준비 완료🔥",
+      B: "이 정도면 서로 인사는 가능!",
+      C: "조원들 이름은... 아시죠? 😅"
+    };
+
     // === 이름 83개 ===
     const words = [
       "남궁명","이윤서","권영지","기잎새","채유라","김병규","박성진","이상훈","권정연",
@@ -246,7 +324,7 @@
       "김다혜","최민아"
     ];
 
-    /* ====== 중복 방지: 셔플 풀 ====== */
+    /* ===== 중복 방지 셔플 풀 ===== */
     let wordPool = shuffle([...words]);
     function shuffle(arr){
       for(let i=arr.length-1; i>0; i--){
@@ -260,12 +338,10 @@
       return wordPool.pop();
     }
 
-    // ====== 효과음 (WebAudio: 추가 파일 불필요) ======
+    /* ===== 효과음: 히트/미스만 유지 ===== */
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let actx = null;
-    function ensureAudio(){
-      if(!actx) actx = new AudioCtx();
-    }
+    function ensureAudio(){ if(!actx) actx = new AudioCtx(); }
     function beep({freq=880, type='square', duration=0.08, gain=0.05}={}){
       ensureAudio();
       const osc = actx.createOscillator();
@@ -276,19 +352,58 @@
       osc.start();
       setTimeout(()=>{ osc.stop(); osc.disconnect(); g.disconnect(); }, duration*1000);
     }
-    function hitSound(){               // 맞췄을 때: 짧고 밝게
-      beep({freq: 880, type:'square', duration:0.07, gain:0.06});
-      setTimeout(()=>beep({freq: 1320, type:'square', duration:0.05, gain:0.05}), 60);
+    function chord(freqs = [880, 1320, 1760], duration = 0.14, gainVal = 0.06){
+      ensureAudio();
+      const g = actx.createGain(); g.gain.value = gainVal; g.connect(actx.destination);
+      const oscs = freqs.map(f=>{
+        const o = actx.createOscillator();
+        o.type = 'square'; o.frequency.value = f; o.connect(g); o.start();
+        return o;
+      });
+      setTimeout(()=>{
+        oscs.forEach(o=>o.stop()); oscs.forEach(o=>o.disconnect()); g.disconnect();
+      }, duration*1000);
     }
-    function missSound(){              // 놓쳤을 때: 낮고 거칠게
+    function hitSound(){ beep({freq: 880, type:'square', duration:0.07, gain:0.06}); setTimeout(()=>beep({freq: 1320, type:'square', duration:0.05, gain:0.05}), 60); }
+    function missSound(){
       ensureAudio();
       const o1 = actx.createOscillator(), n = actx.createOscillator(), g = actx.createGain();
-      o1.type='square'; o1.frequency.value=110;
-      n.type='triangle'; n.frequency.value=55;
-      g.gain.value=0.07;
-      o1.connect(g); n.connect(g); g.connect(actx.destination);
-      o1.start(); n.start();
+      o1.type='square'; o1.frequency.value=110; n.type='triangle'; n.frequency.value=55; g.gain.value=0.07;
+      o1.connect(g); n.connect(g); g.connect(actx.destination); o1.start(); n.start();
       setTimeout(()=>{ o1.stop(); n.stop(); o1.disconnect(); n.disconnect(); g.disconnect(); }, 110);
+    }
+
+    /* ===== 점수 구간 멘트 (인게임 배너, opacity 토글) ===== */
+    const MILESTONES = [
+      {score: 10,  msg: "워밍업 완료! 손 풀렸어요 🔥"},
+      {score: 30,  msg: "리듬 탔다! 좋아요 🎶"},
+      {score: 50,  msg: "이 정도면 이름 거의 외울 듯? 대단해요! 💪"},
+      {score: 80,  msg: "폭주 시작! 멈출 수 없다 🚀"},
+      {score: 100, msg: "백점 돌파! 전설의 시작 👑"},
+      {score: 150, msg: "괴물 손가락 등장… 🧟‍♂️"},
+    ];
+    const shownMilestones = new Set();
+
+    const BONUS_NAMES = new Map([
+      ["김태리", 5],
+      ["박서준", 5],
+    ]);
+
+    // 렉 최적화: display 토글 없이 opacity로만 표시/숨김
+    function showAnnouncer(text){
+      const el = document.getElementById("announcer");
+      el.textContent = text;
+      el.style.opacity = 1;            // 보이기
+      clearTimeout(el._t);
+      el._t = setTimeout(()=>{ el.style.opacity = 0; }, 1600); // 일정 시간 후 숨김
+    }
+    function checkMilestones(currentScore){
+      for(const m of MILESTONES){
+        if(currentScore >= m.score && !shownMilestones.has(m.score)){
+          shownMilestones.add(m.score);
+          showAnnouncer(m.msg); // (효과음 없음)
+        }
+      }
     }
 
     // Elements
@@ -307,6 +422,15 @@
     const lifeFill = document.getElementById("lifeFill");
     const lifeText = document.getElementById("lifeText");
 
+    const resultOverlay = document.getElementById("resultOverlay");
+    const finalScoreEl = document.getElementById("finalScore");
+    const finalComboEl = document.getElementById("finalCombo");
+    const finalCommentEl = document.getElementById("finalComment");
+    const resultTitleEl = document.getElementById("resultTitle");
+    const gradeBadgeEl = document.getElementById("gradeBadge");
+    const gradeTitleEl = document.getElementById("gradeTitle");
+    const playAgainBtn = document.getElementById("playAgain");
+
     // State
     let score = 0;
     let fallSpeed = 2.2;
@@ -314,14 +438,13 @@
     let timeLeft = 60;
     let combo = 0;
     let multiplier = 1;
+    let maxCombo = 0;
     let isRunning = false;
     let lastMissTime = 0;
 
-    // LIFE
     const MAX_LIFE = 10;
     let life = MAX_LIFE;
 
-    // timers
     let gameInterval=null, wordInterval=null, timerInterval=null, speedInterval=null, countdownTimer=null;
 
     function clearAllIntervals(){
@@ -333,15 +456,15 @@
       const pct = Math.max(0, Math.min(1, life / MAX_LIFE));
       lifeFill.style.width = (pct*100) + "%";
       lifeText.innerHTML = `LIFE: <b>${life}</b>/${MAX_LIFE}`;
-      // 위험 색감 살짝 강조
       if(pct <= 0.3){ lifeFill.style.filter = "saturate(1.4) brightness(1)"; }
       else if(pct <= 0.6){ lifeFill.style.filter = "saturate(1.2)"; }
       else { lifeFill.style.filter = "none"; }
     }
 
     function resetState(){
-      score=0; fallSpeed=2.2; spawnMs=900; timeLeft=60; combo=0; multiplier=1; isRunning=false;
+      score=0; fallSpeed=2.2; spawnMs=900; timeLeft=60; combo=0; multiplier=1; maxCombo=0; isRunning=false;
       life = MAX_LIFE; updateLifeBar();
+      shownMilestones.clear();
 
       scoreB.textContent=score; timerB.textContent=timeLeft;
       comboCountB.textContent=combo; multB.textContent=multiplier;
@@ -351,7 +474,10 @@
       overlay.style.display="none";
       missFlash.style.display="none"; missFlash.style.animation="none";
       insertCoin.style.display="flex";
-      wordPool = shuffle([...words]); // 셔플 리셋
+      wordPool = shuffle([...words]);
+      document.getElementById("announcer").style.opacity = 0;   // display 조작 금지
+      resultOverlay.style.display="none";
+      document.querySelectorAll(".confetti").forEach(c=>c.remove());
     }
 
     function createWord(){
@@ -372,20 +498,21 @@
         word.style.top=top+"px";
         if(top>gameArea.clientHeight){
           word.remove();
-          registerMiss(); // 떨어뜨리면 라이프-1
+          registerMiss();
         }
       });
     }
 
     function updateCombo(hit){
-      if(hit){ combo++; multiplier = Math.min(1 + Math.floor(combo/5), 5); }
+      if(hit){ combo++; if(combo>maxCombo) maxCombo=combo; multiplier = Math.min(1 + Math.floor(combo/5), 5); }
       else { combo = 0; multiplier = 1; }
       comboCountB.textContent = combo; multB.textContent = multiplier;
     }
 
-    function floatScore(x,y,amount){
+    function floatScore(x,y,amount, colorText="#fff"){
       const el=document.createElement("div");
       el.className="float-score"; el.style.left = x+"px"; el.style.top = y+"px";
+      el.style.color = colorText;
       el.textContent = `+${amount}`;
       gameArea.appendChild(el);
       setTimeout(()=>el.remove(),700);
@@ -402,11 +529,25 @@
       },1000);
     }
 
+    // 첫 멘트 렌더 워밍업 (시각 변화 없음)
+    function warmUpAnnouncer(){
+      const el = document.getElementById("announcer");
+      const prev = el.textContent;
+      el.textContent = " ";
+      el.style.opacity = 0.0001;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        el.style.opacity = 0;
+        el.textContent = prev;
+      }));
+    }
+
     function startWithCountdown(){
       clearAllIntervals(); resetState();
       startBtn.style.display="none";
-      insertCoin.style.display="none";      // 카운트다운 동안 숨김
+      insertCoin.style.display="none";
       overlay.style.display="flex"; input.disabled=true;
+
+      warmUpAnnouncer(); // ✅ 첫 표시 렉 방지
 
       const steps=["READY","3","2","1","GO!"]; let idx=0;
       countdownEl.textContent=steps[idx]; countdownEl.style.animation="pop .4s ease-out";
@@ -423,11 +564,69 @@
       },800);
     }
 
+    function getEndComment(s){
+      if(s>=150) return "당신의 손가락은 전설입니다! 👑";
+      if(s>=100) return "백점 돌파! 모두가 이름 부를 때 당신을 찾습니다 😎";
+      if(s>=80)  return "폭주 드리프트!! 완전 잘했어요 🚀";
+      if(s>=50)  return "이제 진짜 외워버렸다! 💪";
+      if(s>=30)  return "리듬 제대로 탔다 🎶";
+      return "워밍업 굿! 다음 라운드 고고 🔥";
+    }
+
+    function spawnConfetti(n=40){
+      const colors = ["#ffd400","#00ffc3","#ff5b5b","#ff9bd3","#47b0ff","#ffffff"];
+      for(let i=0;i<n;i++){
+        const c = document.createElement("div");
+        c.className = "confetti";
+        c.style.left = (Math.random()*100) + "vw";
+        c.style.background = colors[Math.floor(Math.random()*colors.length)];
+        c.style.animationDuration = (1200 + Math.random()*900) + "ms";
+        c.style.transform = `translateY(-10px) rotate(${Math.random()*360}deg)`;
+        document.body.appendChild(c);
+        setTimeout(()=>c.remove(), 2000);
+      }
+    }
+
+    function getGrade(score){
+      if(score >= GRADE_THRESHOLDS.S) return "S";
+      if(score >= GRADE_THRESHOLDS.A) return "A";
+      if(score >= GRADE_THRESHOLDS.B) return "B";
+      return "C";
+    }
+
+    function applyGradeUI(grade){
+      gradeBadgeEl.textContent = grade;
+      gradeBadgeEl.classList.remove("gradeS","gradeA","gradeB","gradeC");
+      gradeBadgeEl.classList.add(grade==="S"?"gradeS":grade==="A"?"gradeA":grade==="B"?"gradeB":"gradeC");
+      gradeTitleEl.textContent = GRADE_TITLES[grade] || "";
+    }
+
     function endGame(reason="time"){
       isRunning=false; clearAllIntervals(); input.disabled=true;
       restartBtn.style.display="inline-flex";
-      const msg = reason==="life" ? "라이프가 0이 되어 게임 종료!" : "시간 종료!";
-      alert(`${msg}\n최종 점수: ${score}`);
+
+      const grade = getGrade(score);
+      applyGradeUI(grade);
+
+      finalScoreEl.textContent = score;
+      finalComboEl.textContent = maxCombo;
+      finalCommentEl.textContent = getEndComment(score);
+      resultTitleEl.textContent = reason === "life" ? "💔 GAME OVER" : "🎉 GREAT JOB!";
+      resultOverlay.style.display = "flex";
+
+      // 축하 사운드/콘페티 (원하면 비활성화 가능)
+      if(reason!=="life"){
+        if(grade==="S" || grade==="A"){
+          chord([660,990,1320], 0.24, 0.075);
+          setTimeout(()=>beep({freq:1760, duration:0.06, gain:0.07}), 120);
+          spawnConfetti(80);
+        }else{
+          chord([520,780,1040], 0.18, 0.06);
+          spawnConfetti(40);
+        }
+      }else{
+        missSound();
+      }
     }
 
     function triggerMissFlash(){
@@ -466,12 +665,27 @@
 
           target.remove();
           updateCombo(true);
-          const gain = 1 * multiplier;  // 기본 1점 × 배수
-          score += gain; scoreB.textContent = score;
-          floatScore(cx, cy, gain);
+
+          const baseGain = 1 * multiplier;
+          let totalGain = baseGain;
+          score += baseGain;
+          floatScore(cx, cy, baseGain, "#fff");
           hitSound();
+
+          // 보너스
+          if(BONUS_NAMES.has(value)){
+            const bonus = BONUS_NAMES.get(value) || 0;
+            if(bonus > 0){
+              score += bonus; totalGain += bonus;
+              floatScore(cx, cy-24, bonus, "#ffd400");
+              showAnnouncer(`✨ 신규입사자 보너스! +${bonus}`); // 인게임 배너로 표시
+            }
+          }
+
+          scoreB.textContent = score;
+          checkMilestones(score);
+
         }else{
-          // 오타로 일치 단어가 없으면 "한 번의 기회 낭비"로 처리
           registerMiss();
         }
         input.value="";
@@ -479,15 +693,9 @@
     });
 
     // 버튼
-    startBtn.addEventListener("click", ()=>{
-      // iOS 사파리 등 사용자 제스처 이후에만 오디오 컨텍스트 허용 → 버튼 클릭 시 초기화
-      ensureAudio();
-      startWithCountdown();
-    });
-    restartBtn.addEventListener("click", ()=>{
-      ensureAudio();
-      startWithCountdown();
-    });
+    startBtn.addEventListener("click", ()=>{ ensureAudio(); startWithCountdown(); });
+    restartBtn.addEventListener("click", ()=>{ ensureAudio(); startWithCountdown(); });
+    document.getElementById("playAgain").addEventListener("click", ()=>{ ensureAudio(); startWithCountdown(); });
 
     // 포커스 유지
     window.addEventListener("resize", ()=>{ if(isRunning) input.focus(); });
