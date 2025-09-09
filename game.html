@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>본격 어색함 방지 게임 : 너의 이름은 (최적화 버전)</title>
+  <title>본격 어색함 방지 타자 게임 : 너의 이름은</title>
 
   <style>
     /* 로컬 픽셀 폰트 */
@@ -88,6 +88,7 @@
       border:8px solid var(--ink); outline:4px solid #0c1322;
       box-shadow: inset 0 0 40px rgba(0,0,0,.65), 0 0 12px var(--accent), 0 0 30px rgba(0,255,195,.35);
       overflow:hidden; animation: neonPulse 2400ms ease-in-out infinite;
+      contain: layout paint; /* 페인트/레이아웃 범위 고립 */
     }
     @keyframes neonPulse{
       0%,100%{ box-shadow: inset 0 0 40px rgba(0,0,0,.65), 0 0 10px var(--accent), 0 0 24px rgba(0,255,195,.3) }
@@ -99,6 +100,7 @@
       background:#0f2530; border:4px solid var(--ink); padding:8px 12px;
       box-shadow: 0 4px 0 #000, 0 0 10px rgba(0,255,195,.25);
       user-select:none; pointer-events:none;
+      will-change: transform; /* transform 합성 가속 */
     }
 
     #controls{ margin:14px 0 20px }
@@ -117,7 +119,7 @@
     .btn:active{ transform: translateY(2px); box-shadow: 0 3px 0 #004437 }
     #restartBtn{ display:none }
 
-    /* 인게임 응원 코멘트 (UI/그래픽 동일, display 토글 → opacity 토글) */
+    /* 인게임 응원 코멘트 */
     #announcer{
       position:absolute; left:50%; transform:translateX(-50%) translateZ(0);
       top:14px; z-index:8; pointer-events:none;
@@ -127,10 +129,11 @@
       border:4px solid var(--ink);
       box-shadow:0 4px 0 #000, 0 0 12px rgba(0,255,195,.25);
 
-      opacity:0;                 /* ← 기본은 보이지 않음 */
+      opacity:0;                 /* 기본은 보이지 않음 */
       transition: opacity .18s ease-out;
       will-change: opacity, transform;
       backface-visibility: hidden;
+      contain: layout paint;     /* 고립 */
     }
 
     /* 오버레이/미스/인서트코인 */
@@ -195,7 +198,7 @@
   </style>
 </head>
 <body>
-  <h1>본격 어색함 방지 게임 : 너의 이름은</h1>
+  <h1>본격 어색함 방지 타자 게임 : 너의 이름은</h1>
 
   <!-- HUD -->
   <div id="hud">
@@ -251,7 +254,7 @@
 
   <!-- 게임 필드 -->
   <div id="game">
-    <!-- 인게임 응원 코멘트 (opacity로만 토글) -->
+    <!-- 인게임 응원 코멘트 -->
     <div id="announcer">👏 멘트</div>
 
     <div id="overlay"><div id="countdown">READY</div></div>
@@ -310,21 +313,84 @@
       C: "조원들 이름은... 아시죠? 😅"
     };
 
-    // === 이름 83개 ===
+    // === 이름 (중복 허용) ===
     const words = [
       "남궁명","이윤서","권영지","기잎새","채유라","김병규","박성진","이상훈","권정연",
       "장서윤","조민하","이건일","조영진","이하지","이민지","안수현","김성훈","이지은",
-      "류한나","방웅빈","김혜미","허기무","추현일","한지호","김가람","정민준","한윤서",
-      "김소영","임동현","김현주","이은경","임동선","금상훈","정다미","김민주","이현영",
-      "박서준","조경민","문상하","배준호","김수현","김태리","유원녕","박영현","전현태",
-      "백진현","홍석란","김소현","장병국","신승훈","김지수","장혁민","곽영재","김형준",
-      "최고은","윤성은","최서영","문수영","김수현","이선우","장해원","임용재","최지수",
-      "임정은","박진수","문진영","이혜미","고광남","정우진","정대훈","곽규환","이예은",
-      "백은정","이정하","현채빈","김서연","이중엽","윤상빈","이지영","김선진","현동윤",
-      "김다혜","최민아"
+      "류한나","방웅빈","김윤주","임동선","용서희","한지호","김가람","정민준",
+      "한윤서","김예림","김소영","임동현","김현주","이은경","김혜미","금상훈","정다미",
+      "김민주","이현영","박서준","조경민","문상하","배준호","김수현","김태리","유원녕",
+      "박영현","전현태","이예림","백진현","홍석란","김소현","장병국","신승훈","김지수",
+      "장혁민","곽영재","김형준","최고은","윤성은","최서영","문수영","김수현","이선우",
+      "임용재","정우진","최지수","임정은","박진수","문진영","이혜미","고광남","장해원",
+      "정대훈","곽규환","이예은","백은정","이정하","현채빈","추현일","허기무",
+      // 추가된 이름들
+      "김선진","현동윤","김서연","이중엽","이지영","최민아","윤상빈","김다혜"
     ];
 
-    /* ===== 중복 방지 셔플 풀 ===== */
+    /* ===== 보너스 이름 ===== */
+    const BONUS_NAMES = new Map([
+      ["고광남", 5],["이민지", 5],["임동선", 5],["김선진", 5],["현동윤", 5],
+      ["권정연", 5],["유원녕", 5],["정민준", 5],["허기무", 5],["김소현", 5],
+      ["장서윤", 5],["김성훈", 5],["최지수", 5],["김민주", 5],["용서희", 5],
+      ["김지수", 5],["김소영", 5],["김예림", 5],["김윤주", 5],
+    ]);
+
+    /* ===== 난이도/성능 보호 상수 ===== */
+    const MAX_FALL_SPEED = 11; // 낙하 속도 상한
+    function getMaxWords(){    // 점수 구간별 동시 단어 최대치
+      if (score >= 150) return 16;
+      if (score >= 100) return 14;
+      if (score >= 50)  return 12;
+      return 10; // 초반엔 10개
+    }
+
+    /* ===== Elements (먼저 선언: 전역에서 재사용) ===== */
+    const gameArea = document.getElementById("game");
+    const input = document.getElementById("input");
+    const scoreB = document.querySelector("#score b");
+    const timerB = document.querySelector("#timer b");
+    const comboCountB = document.getElementById("comboCount");
+    const multB = document.getElementById("mult");
+    const startBtn = document.getElementById("startBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const overlay = document.getElementById("overlay");
+    const countdownEl = document.getElementById("countdown");
+    const missFlash = document.getElementById("missFlash");
+    const insertCoin = document.getElementById("insertCoin");
+    const lifeFill = document.getElementById("lifeFill");
+    const lifeText = document.getElementById("lifeText");
+
+    const resultOverlay = document.getElementById("resultOverlay");
+    const finalScoreEl = document.getElementById("finalScore");
+    const finalComboEl = document.getElementById("finalCombo");
+    const finalCommentEl = document.getElementById("finalComment");
+    const resultTitleEl = document.getElementById("resultTitle");
+    const gradeBadgeEl = document.getElementById("gradeBadge");
+    const gradeTitleEl = document.getElementById("gradeTitle");
+    const playAgainBtn = document.getElementById("playAgain");
+
+    /* ===== 상태 ===== */
+    let score = 0;
+    let fallSpeed = 2.2;
+    let spawnMs = 900;
+    let timeLeft = 60;
+    let combo = 0;
+    let multiplier = 1;
+    let maxCombo = 0;
+    let isRunning = false;
+    let lastMissTime = 0;
+
+    const MAX_LIFE = 10;
+    let life = MAX_LIFE;
+
+    // 150점 순간 스파이크 완화
+    let spawnPauseUntil = 0;          // 새 단어 스폰 일시정지
+    let suppressDoubleBeepUntil = 0;  // 보조 beep 억제
+
+    let gameInterval=null, wordInterval=null, timerInterval=null, speedInterval=null, countdownTimer=null;
+
+    /* ===== 단어 풀/셔플 ===== */
     let wordPool = shuffle([...words]);
     function shuffle(arr){
       for(let i=arr.length-1; i>0; i--){
@@ -338,7 +404,7 @@
       return wordPool.pop();
     }
 
-    /* ===== 효과음: 히트/미스만 유지 ===== */
+    /* ===== 오디오 ===== */
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let actx = null;
     function ensureAudio(){ if(!actx) actx = new AudioCtx(); }
@@ -364,7 +430,12 @@
         oscs.forEach(o=>o.stop()); oscs.forEach(o=>o.disconnect()); g.disconnect();
       }, duration*1000);
     }
-    function hitSound(){ beep({freq: 880, type:'square', duration:0.07, gain:0.06}); setTimeout(()=>beep({freq: 1320, type:'square', duration:0.05, gain:0.05}), 60); }
+    function hitSound(){
+      beep({freq: 880, type:'square', duration:0.07, gain:0.06});
+      if (Date.now() > suppressDoubleBeepUntil){
+        setTimeout(()=>beep({freq: 1320, type:'square', duration:0.05, gain:0.05}), 60);
+      }
+    }
     function missSound(){
       ensureAudio();
       const o1 = actx.createOscillator(), n = actx.createOscillator(), g = actx.createGain();
@@ -373,85 +444,42 @@
       setTimeout(()=>{ o1.stop(); n.stop(); o1.disconnect(); n.disconnect(); g.disconnect(); }, 110);
     }
 
-    /* ===== 점수 구간 멘트 (인게임 배너, opacity 토글) ===== */
+    /* ===== 점수 구간 멘트 ===== */
     const MILESTONES = [
-      {score: 10,  msg: "워밍업 완료! 손 풀렸어요 🔥"},
-      {score: 30,  msg: "리듬 탔다! 좋아요 🎶"},
+      {score: 10,  msg: "워밍업 완료! 완전 손 풀렸어요 🔥"},
+      {score: 30,  msg: "리듬 탔는데요? 조금만 더! 🎶"},
       {score: 50,  msg: "이 정도면 이름 거의 외울 듯? 대단해요! 💪"},
-      {score: 80,  msg: "폭주 시작! 멈출 수 없다 🚀"},
+      {score: 80,  msg: "폭주 시작! 그.의.손.가.락.을 멈출 수 없다 🚀"},
       {score: 100, msg: "백점 돌파! 전설의 시작 👑"},
-      {score: 150, msg: "괴물 손가락 등장… 🧟‍♂️"},
+      {score: 150, msg: "와우...최고 점수 노릴만 하겠는데요?… 🧟‍♂️"},
     ];
     const shownMilestones = new Set();
 
-    const BONUS_NAMES = new Map([
-      ["김태리", 5],
-      ["박서준", 5],
-    ]);
-
-    // 렉 최적화: display 토글 없이 opacity로만 표시/숨김
     function showAnnouncer(text){
       const el = document.getElementById("announcer");
       el.textContent = text;
-      el.style.opacity = 1;            // 보이기
+      el.style.opacity = 1;
       clearTimeout(el._t);
-      el._t = setTimeout(()=>{ el.style.opacity = 0; }, 1600); // 일정 시간 후 숨김
+      el._t = setTimeout(()=>{ el.style.opacity = 0; }, 1600);
     }
     function checkMilestones(currentScore){
       for(const m of MILESTONES){
         if(currentScore >= m.score && !shownMilestones.has(m.score)){
           shownMilestones.add(m.score);
-          showAnnouncer(m.msg); // (효과음 없음)
+          showAnnouncer(m.msg);
+          if(m.score >= 150){ // 150점 순간 스파이크 완화
+            spawnPauseUntil = Date.now() + 400;         // 0.4s 스폰 일시정지
+            suppressDoubleBeepUntil = Date.now() + 300; // 0.3s 보조 beep 억제
+          }
         }
       }
     }
 
-    // Elements
-    const gameArea = document.getElementById("game");
-    const input = document.getElementById("input");
-    const scoreB = document.querySelector("#score b");
-    const timerB = document.querySelector("#timer b");
-    const comboCountB = document.getElementById("comboCount");
-    const multB = document.getElementById("mult");
-    const startBtn = document.getElementById("startBtn");
-    const restartBtn = document.getElementById("restartBtn");
-    const overlay = document.getElementById("overlay");
-    const countdownEl = document.getElementById("countdown");
-    const missFlash = document.getElementById("missFlash");
-    const insertCoin = document.getElementById("insertCoin");
-    const lifeFill = document.getElementById("lifeFill");
-    const lifeText = document.getElementById("lifeText");
-
-    const resultOverlay = document.getElementById("resultOverlay");
-    const finalScoreEl = document.getElementById("finalScore");
-    const finalComboEl = document.getElementById("finalCombo");
-    const finalCommentEl = document.getElementById("finalComment");
-    const resultTitleEl = document.getElementById("resultTitle");
-    const gradeBadgeEl = document.getElementById("gradeBadge");
-    const gradeTitleEl = document.getElementById("gradeTitle");
-    const playAgainBtn = document.getElementById("playAgain");
-
-    // State
-    let score = 0;
-    let fallSpeed = 2.2;
-    let spawnMs = 900;
-    let timeLeft = 60;
-    let combo = 0;
-    let multiplier = 1;
-    let maxCombo = 0;
-    let isRunning = false;
-    let lastMissTime = 0;
-
-    const MAX_LIFE = 10;
-    let life = MAX_LIFE;
-
-    let gameInterval=null, wordInterval=null, timerInterval=null, speedInterval=null, countdownTimer=null;
-
+    /* ===== 유틸 ===== */
     function clearAllIntervals(){
       [gameInterval,wordInterval,timerInterval,speedInterval,countdownTimer].forEach(t=>t && clearInterval(t));
       gameInterval=wordInterval=timerInterval=speedInterval=countdownTimer=null;
     }
-
     function updateLifeBar(){
       const pct = Math.max(0, Math.min(1, life / MAX_LIFE));
       lifeFill.style.width = (pct*100) + "%";
@@ -465,38 +493,49 @@
       score=0; fallSpeed=2.2; spawnMs=900; timeLeft=60; combo=0; multiplier=1; maxCombo=0; isRunning=false;
       life = MAX_LIFE; updateLifeBar();
       shownMilestones.clear();
+      spawnPauseUntil = 0;
+      suppressDoubleBeepUntil = 0;
 
       scoreB.textContent=score; timerB.textContent=timeLeft;
       comboCountB.textContent=combo; multB.textContent=multiplier;
+
+      // 버튼/오버레이 관련만 display 토글 (HUD는 건드리지 않음)
       restartBtn.style.display="none"; startBtn.style.display="inline-flex";
       input.value=""; input.disabled=true;
       document.querySelectorAll(".word").forEach(el=>el.remove());
       overlay.style.display="none";
       missFlash.style.display="none"; missFlash.style.animation="none";
       insertCoin.style.display="flex";
+
       wordPool = shuffle([...words]);
-      document.getElementById("announcer").style.opacity = 0;   // display 조작 금지
+      document.getElementById("announcer").style.opacity = 0;
       resultOverlay.style.display="none";
       document.querySelectorAll(".confetti").forEach(c=>c.remove());
     }
 
+    /* ===== 생성/이동 (transform 기반) ===== */
     function createWord(){
+      if (Date.now() < spawnPauseUntil) return; // 150점 순간 일시정지
+      const currentWords = document.querySelectorAll(".word").length;
+      if (currentWords >= getMaxWords()) return;
+
       const wordEl=document.createElement("div");
       wordEl.className="word";
       wordEl.textContent=getNextWord();
       const maxLeft=Math.max(0, gameArea.clientWidth - 200);
       wordEl.style.left=Math.max(0, Math.random()*maxLeft) + "px";
-      wordEl.style.top="0px";
+      wordEl._y = 0;                              // 수직 위치 누적값
+      wordEl.style.transform = "translateY(0px)"; // top 대신 transform
       gameArea.appendChild(wordEl);
     }
 
     function moveWords(){
       const wordEls=document.querySelectorAll(".word");
+      const h = gameArea.clientHeight;
       wordEls.forEach(word=>{
-        let top=parseFloat(word.style.top);
-        top += fallSpeed;
-        word.style.top=top+"px";
-        if(top>gameArea.clientHeight){
+        word._y = (word._y || 0) + fallSpeed;
+        word.style.transform = `translateY(${word._y}px)`;
+        if(word._y > h){
           word.remove();
           registerMiss();
         }
@@ -522,14 +561,16 @@
       isRunning=true; input.disabled=false; input.focus();
       wordInterval = setInterval(createWord, spawnMs);
       gameInterval = setInterval(moveWords, 30);
-      speedInterval = setInterval(()=>{ fallSpeed += 0.35; }, 4000);
+      speedInterval = setInterval(()=>{
+        fallSpeed = Math.min(fallSpeed + 0.35, MAX_FALL_SPEED);
+      }, 4000);
       timerInterval = setInterval(()=>{
         timeLeft--; timerB.textContent=timeLeft;
         if(timeLeft<=0) endGame("time");
       },1000);
     }
 
-    // 첫 멘트 렌더 워밍업 (시각 변화 없음)
+    // 첫 멘트 렌더 워밍업
     function warmUpAnnouncer(){
       const el = document.getElementById("announcer");
       const prev = el.textContent;
@@ -547,7 +588,7 @@
       insertCoin.style.display="none";
       overlay.style.display="flex"; input.disabled=true;
 
-      warmUpAnnouncer(); // ✅ 첫 표시 렉 방지
+      warmUpAnnouncer();
 
       const steps=["READY","3","2","1","GO!"]; let idx=0;
       countdownEl.textContent=steps[idx]; countdownEl.style.animation="pop .4s ease-out";
@@ -565,10 +606,10 @@
     }
 
     function getEndComment(s){
-      if(s>=150) return "당신의 손가락은 전설입니다! 👑";
-      if(s>=100) return "백점 돌파! 모두가 이름 부를 때 당신을 찾습니다 😎";
+      if(s>=150) return "당신의 손가락은 그저 갓. 레전드! 👑";
+      if(s>=100) return "백점 돌파! HR Day는 자신있지!😎";
       if(s>=80)  return "폭주 드리프트!! 완전 잘했어요 🚀";
-      if(s>=50)  return "이제 진짜 외워버렸다! 💪";
+      if(s>=50)  return "이정도면 선방?? 외워버렸다! 💪";
       if(s>=30)  return "리듬 제대로 탔다 🎶";
       return "워밍업 굿! 다음 라운드 고고 🔥";
     }
@@ -614,7 +655,6 @@
       resultTitleEl.textContent = reason === "life" ? "💔 GAME OVER" : "🎉 GREAT JOB!";
       resultOverlay.style.display = "flex";
 
-      // 축하 사운드/콘페티 (원하면 비활성화 가능)
       if(reason!=="life"){
         if(grade==="S" || grade==="A"){
           chord([660,990,1320], 0.24, 0.075);
@@ -654,7 +694,10 @@
 
         const wordEls = Array.from(document.querySelectorAll(".word"))
           .filter(w=>w.textContent===value)
-          .sort((a,b)=>parseFloat(a.style.top)-parseFloat(b.style.top));
+          .sort((a,b)=>{
+            const ay = a._y || 0, by = b._y || 0;
+            return by - ay; // 더 아래(큰 y) 먼저 제거
+          });
 
         if(wordEls.length>0){
           const target=wordEls[0];
@@ -678,7 +721,7 @@
             if(bonus > 0){
               score += bonus; totalGain += bonus;
               floatScore(cx, cy-24, bonus, "#ffd400");
-              showAnnouncer(`✨ 신규입사자 보너스! +${bonus}`); // 인게임 배너로 표시
+              showAnnouncer(`✨ 신규입사자 보너스! +${bonus}`);
             }
           }
 
@@ -695,7 +738,7 @@
     // 버튼
     startBtn.addEventListener("click", ()=>{ ensureAudio(); startWithCountdown(); });
     restartBtn.addEventListener("click", ()=>{ ensureAudio(); startWithCountdown(); });
-    document.getElementById("playAgain").addEventListener("click", ()=>{ ensureAudio(); startWithCountdown(); });
+    playAgainBtn.addEventListener("click", ()=>{ ensureAudio(); startWithCountdown(); });
 
     // 포커스 유지
     window.addEventListener("resize", ()=>{ if(isRunning) input.focus(); });
